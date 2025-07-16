@@ -64,6 +64,9 @@ def request_to_join_ride(alias: str, ride_id: int, participant_alias: str, parti
     if not db_participant:
         raise HTTPException(status_code=404, detail="Participant not found")
 
+    if db_driver.id == db_participant.id:
+        raise HTTPException(status_code=422, detail="Driver cannot join their own ride")
+
     existing_participation = any(p.participant_id == db_participant.id for p in db_ride.participants)
     if existing_participation:
         raise HTTPException(status_code=422, detail="Participant has already requested to join this ride")
