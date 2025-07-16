@@ -78,3 +78,11 @@ Este es el backend para un sistema de gestión de "rides" en UTEC.
 ### Bajar del ride
 
 * **POST** `/usuarios/{alias}/rides/{rideid}/unloadParticipant`
+
+## Procedimiento de ejecución
+
+1. Clonar el repositorio.
+2. Instalar las dependencias: `pip install -r requirements.txt`
+3. Ejecutar la aplicación: `uvicorn app.main:app --reload`
+4. Ejecutar las pruebas: `pytest`
+5. Ejecutar las pruebas con coverage: `coverage run -m pytest` y `coverage report -m`

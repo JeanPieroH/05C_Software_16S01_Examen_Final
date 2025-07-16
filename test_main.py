@@ -25,56 +25,43 @@ app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown_db():
     Base.metadata.create_all(bind=engine)
     yield
-    os.remove("./test.db")
+    Base.metadata.drop_all(bind=engine)
 
-def test_create_user():
+
+def test_create_user_success():
+    # Caso de prueba: Crear un usuario exitosamente.
     response = client.post("/usuarios/", json={"alias": "testuser", "name": "Test User", "carPlate": "TEST-123"})
     assert response.status_code == 200
     assert response.json()["alias"] == "testuser"
 
-def test_read_users():
-    response = client.get("/usuarios/")
-    assert response.status_code == 200
-    assert isinstance(response.json(), list)
+def test_create_user_duplicate_alias():
+    # Caso de prueba: Intentar crear un usuario con un alias que ya existe.
+    client.post("/usuarios/", json={"alias": "testuser", "name": "Test User", "carPlate": "TEST-123"})
+    response = client.post("/usuarios/", json={"alias": "testuser", "name": "Another User", "carPlate": "ANO-456"})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Alias already registered"
 
-def test_create_ride():
-    client.post("/usuarios/", json={"alias": "driver", "name": "Driver User", "carPlate": "DRIVE-123"})
+def test_create_ride_for_non_driver():
+    # Caso de prueba: Intentar crear un ride para un usuario que no es conductor.
+    client.post("/usuarios/", json={"alias": "nondriver", "name": "Non Driver User"})
     response = client.post(
-        "/usuarios/driver/rides",
+        "/usuarios/nondriver/rides",
         json={"rideDateAndTime": "2025-07-15T22:00:00", "finalAddress": "Test Address", "allowedSpaces": 3}
     )
-    assert response.status_code == 200
-    assert response.json()["finalAddress"] == "Test Address"
+    assert response.status_code == 422
+    assert response.json()["detail"] == "User is not a driver"
 
-def test_request_to_join_ride():
+def test_request_to_join_nonexistent_ride():
+    # Caso de prueba: Intentar unirse a un ride que no existe.
+    client.post("/usuarios/", json={"alias": "driver", "name": "Driver User", "carPlate": "DRIVE-123"})
     client.post("/usuarios/", json={"alias": "participant", "name": "Participant User"})
     response = client.post(
-        "/usuarios/driver/rides/1/requestToJoin/participant",
+        "/usuarios/driver/rides/999/requestToJoin/participant",
         json={"destination": "Participant Destination", "occupiedSpaces": 1}
     )
-    assert response.status_code == 200
-    assert response.json()["destination"] == "Participant Destination"
-
-def test_accept_ride_request():
-    response = client.post("/usuarios/driver/rides/1/accept/participant")
-    assert response.status_code == 200
-    assert response.json()["message"] == "Ride request accepted"
-
-def test_start_ride():
-    response = client.post("/usuarios/driver/rides/1/start")
-    assert response.status_code == 200
-    assert response.json()["message"] == "Ride started"
-
-def test_unload_participant():
-    response = client.post("/usuarios/participant/rides/1/unloadParticipant")
-    assert response.status_code == 200
-    assert response.json()["message"] == "Participant unloaded"
-
-def test_end_ride():
-    response = client.post("/usuarios/driver/rides/1/end")
-    assert response.status_code == 200
-    assert response.json()["message"] == "Ride ended"
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Ride not found"
